@@ -247,30 +247,145 @@ if (!isset($this->session->userdata['logged_in'])) {
 </style>
 <script>
 
-    $('document').ready(function() {
-        $('.nav-pills a[href="'+location.href+'"]').parents('li').addClass('active')
-        function getMails(type) {
-            $.ajax({
-                type:'GET',
-                url:'mail/mails?type='+type,
-                success:function (data) {
-                    $('#username ').html('<span class="glyphicon glyphicon-user">'+data.user.name+'</span>')
-                    $('#received span').html(data.count.unread);
-                    $('#draft span').html(data.count.draft);
-                    if(data.status==0){
-                        $('#mails a').remove();
-                        $('#mails').append('<a><span class="name" style="min-width: 120px;display: inline-block;">There is no message</span></a>');
+    function openMail(id) {
+        $.ajax({
+            type: 'GET',
+            url: 'mail/mails?id='+id,
+            success: function (data) {
+                $('#mails').empty()
+                if(data.mails[0][0].isRead==0){
+                    updateMail(id,1,0);
+
+
+                }
+                allreceivers=""
+                $.each(data.receivers, function (index, receiver){
+                    //console.log(data.user)
+                    receiver=receiver.username
+                    if(receiver==data.user.username){
+                        receiver="me"
+                    }
+
+                    if(allreceivers){
+
+                        allreceivers=allreceivers+","+receiver
                     }
                     else{
-                        $('#mails a').remove();
-                        $.each(data.mails, function(index,mail) {
+                        allreceivers+=receiver
+                    }
+                });
+                //console.log(allreceivers)
+                subject=data.mails[0][0].subject;
+                $('#mails').append('<h3>'+subject+'</h3>')
+                $.each(data.mails, function (index, mail) {
+                   // console.log(mail,mail[index].body)
+                    body = mail[0].body.replace(/(?:\r\n|\r|\n)/g, '<br />');
+                    //receiver=mail[0].username;
+                    sender=mail[0].username
+
+                    if(sender==data.user.username)sender="me"
+                    parent_id=mail[0].id
+                    console.log(mail[0].username)
+
+                    $('#mails').append('<p class="media" style="text-decoration:none;color:black"> <div class="media-body"> ' +
+                        '<div class="media">To-' +
+                        '<small class="text-muted receivers">'+allreceivers+'</small><br>'+
+                        '<div class="media-body">'+body+'' +
+                        '<br> ' +
+                        '<small class="text-muted">'+sender+' | '+mail[0].sentAt+'</small> ' +
+                        '<br><a href="#" class='+parent_id+' >reply</a> <a href="#" class='+parent_id+'>forward</a> '+
+                        '<hr> ' +
+                        '</div> ' +
+                        '</div> ' +
+                        '</div> ' +
+                        '</p>');
+                });
+
+
+
+
+
+
+            }
+
+        });
+
+
+
+    }
+
+    function reply(receiver,subject,parent_id) {
+        //console.log(receiver,subject,parent_id)
+        $('#replyForward').remove()
+        if($('#mails').find('.replyBox').length==0){
+            $('#mails').append('<form class="replyBox" id="replyForward"><div class="form-group"> ' +
+                '<label class="col-lg-2 control-label">Message</label> ' +
+                '<textarea rows="10" cols="30" class="form-control" id="reply"></textarea> ' +
+                '</div><button class="btn btn-primary" onclick="sendReply(receiver,subject,parent_id)" type="submit">Send</button><form/>')
+        }
+
+    }
+    function forward() {
+        $('#replyForward').remove()
+        if($('#mails').find('.forwardBox').length==0){
+            $('#mails').append('<form class="forwardBox" id="replyForward"><div class="form-group"> ' +
+                '<label class="col-lg-2 control-label">To</label> ' +
+                '<input type="text" placeholder="david,mark,tony" id="forwardTo" name="receivers" class="form-control">' +
+                '<label class="col-lg-2 control-label">Message</label>' +
+                '<textarea rows="10" cols="30" class="form-control" id="forwardMessage" ></textarea>' +
+                '</div><button class="btn btn-primary" type="submit">Send</button><form/>')
+        }
+
+    }
+    function updateMail(id,read,deleted) {
+        $.ajax({
+            type:'PUT',
+            url: 'mail/mails',
+            data: { id:id,read:read,deleted:deleted }
+
+        });
+
+    }
+    function sendReply(receivers,subject,parent_id) {
+        $.ajax({
+            type:'POST',
+            url: 'mail/mails',
+            data: {body:$('#reply').val(),subject:subject,receivers:receivers,parent_id:parent_id},
+            success:function (res) {
+                $('#replyForward').remove()
+            }
+
+        });
+    }
+
+    $('document').ready(function() {
+        $('.nav-pills a[href="' + location.href + '"]').parents('li').addClass('active')
+
+        function getMails(type) {
+            $.ajax({
+                type: 'GET',
+                url: 'mail/mails?type=' + type,
+                success: function (data) {
+                    $('#username ').html('<span class="glyphicon glyphicon-user">' + data.user.name + '</span>')
+                    $('#received span').html(data.count.unread);
+                    $('#draft span').html(data.count.draft);
+                    if (data.status == 0) {
+                        $('#mails').empty()
+
+                        $('#mails').append('<h3 align="center">There is no message</h3>');
+
+                    }
+                    else {
+                        $('#mails').empty()
+
+                        $.each(data.mails, function (index, mail) {
                             //console.log(mail.id)
-                            $('#mails').append('<a href="#" class="list-group-item" > <div class="checkbox"> <label> ' +
-                                '<input type="checkbox"> ' +
-                                '</label> </div> <span class="glyphicon glyphicon-star-empty"></span><span class="name" style="min-width: 120px;display: inline-block;">'+(type == "sent" ? 'To- ': '')+mail.name+'</span>' +
-                                ' <span class="">'+mail.subject.substring(0,20)+'...</span> ' +
-                                '<span class="text-muted" style="font-size: 11px;">-'+mail.body.substring(0,30)+'.....</span> ' +
-                                '<span class="badge">'+mail.sentAt+'</span> <span class="pull-right">'+(mail.attached==0? ' ':'<span class="glyphicon glyphicon-paperclip"></span>')+' </span></a>')
+                            $('#mails').append((mail.isRead==0?'<b>':'')+'<a href="#"  onclick="openMail('+mail.mail_id+')" class="list-group-item mailList" id="mailList">' +
+
+                                '<span class="name" style="min-width: 120px;display: inline-block;">' + (type == "sent" ? 'To- ' : '') + ((type=="received"&&data.user.id==mail.sender_id)||(type=="sent"&&data.user.id==mail.mail_receiver) ? "me":mail.name) + '</span>' +
+                                ' <span class="">' + mail.subject.substring(0, 20) + '...</span> ' +
+                                '<span class="text-muted" style="font-size: 11px;">-' + mail.body.substring(0, 30) + '.....</span> ' +
+                                '<span class="badge">' + mail.sentAt + '</span> <span class="pull-right">' + (mail.attached == 0 ? ' ' : '<span class="glyphicon glyphicon-paperclip"></span>') + ' </span></a>')
                         });
                     }
 
@@ -280,19 +395,23 @@ if (!isset($this->session->userdata['logged_in'])) {
 
 
         }
+
         getMails("received");
 
         $("#compose-form").validate({
             rules: {
                 receivers: {
                     required: true,
+
                 },
                 subject: {
                     required: true,
 
+
                 },
                 body: {
                     required: true,
+
                 }
             },
             messages: {
@@ -328,27 +447,28 @@ if (!isset($this->session->userdata['logged_in'])) {
             });
             return false;
         }
-        $("#refresh").click(function() {
-            t=$("ul.nav-pills li.active a")[0].id
+
+        $("#refresh").click(function () {
+            t = $("ul.nav-pills li.active a")[0].id
             getMails(t)
         });
-        $("#sent").click(function() {
-            t=$("ul.nav-pills li.active a")[0].id
+        $("#sent").click(function () {
+            t = $("ul.nav-pills li.active a")[0].id
             getMails("sent")
         });
-        $("#received").click(function() {
-            t=$("ul.nav-pills li.active a")[0].id
+        $("#received").click(function () {
+            t = $("ul.nav-pills li.active a")[0].id
             getMails("received")
         });
-        $("#draft").click(function() {
-            t=$("ul.nav-pills li.active a")[0].id
+        $("#draft").click(function () {
+            t = $("ul.nav-pills li.active a")[0].id
             getMails("draft")
         });
-        $("#deleted").click(function() {
-            t=$("ul.nav-pills li.active a")[0].id
+        $("#deleted").click(function () {
+            t = $("ul.nav-pills li.active a")[0].id
             getMails("deleted")
         });
-        $("#logout").click(function() {
+        $("#logout").click(function () {
             $.ajax({
 
                 type: 'GET',
@@ -360,7 +480,12 @@ if (!isset($this->session->userdata['logged_in'])) {
                 }
             });
         });
+        $('#mails').on('click', '.media a', function() {
+
+            reply($('#mails .receivers').html(),$('#mails H3').html(),this.className)
+        });
 
 
     });
+
 </script>

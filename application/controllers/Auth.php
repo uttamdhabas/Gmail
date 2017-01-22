@@ -48,8 +48,8 @@ class Auth extends REST_Controller {
                 if (count($result) >0) {
                     $session_data = array(
                         'userID'=>$result['id'],
-                        'username' => $result['name'],
-                        'email' => $result['email'],
+                        'username' => $result['username'],
+                        'name' => $result['name'],
                     );
 // Add user data in session
 

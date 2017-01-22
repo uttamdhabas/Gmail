@@ -103,7 +103,7 @@ if (isset($this->session->userdata['logged_in'])) {
                 password:{
                     required: "please enter your password"
                 },
-                username: "please enter your email address",
+                username: "please enter your username address",
             },
             submitHandler: submitForm
         });

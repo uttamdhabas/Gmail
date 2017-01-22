@@ -22,8 +22,11 @@ class Mail extends REST_Controller {
     {
         if (isset($this->session->userdata['logged_in'])) {
             $userID = ($this->session->userdata['logged_in']['userID']);
-            $user=array('name'=>$this->session->userdata['logged_in']['username'],
-                'email'=>$this->session->userdata['logged_in']['email']);
+            $user=array(
+                'id'=>$userID,
+                'name'=>$this->session->userdata['logged_in']['name'],
+                'username'=>$this->session->userdata['logged_in']['username']
+            );
 
             $id = $this->get('id');
             $page=$this->get('page');
@@ -61,11 +64,12 @@ class Mail extends REST_Controller {
                     // Invalid id, set the response and exit.
                     $this->response(NULL, REST_Controller::HTTP_BAD_REQUEST); // BAD_REQUEST (400) being the HTTP response code
                 }
-                $mail=$mails=$this->mail_model->get_mail($userID);
+                $mail=$mails=$this->mail_model->get_thread($id,$userID);
                 if ($mail)
                 {
                     // Set the response and exit
-                    $this->response($mail, REST_Controller::HTTP_OK); // OK (200) being the HTTP response code
+                    $receivers=$this->mail_model->get_receivers($id);
+                    $this->response(['user'=>$user,'mails'=>$mail,'receivers'=>$receivers], REST_Controller::HTTP_OK); // OK (200) being the HTTP response code
                 }
                 else
                 {
@@ -103,8 +107,10 @@ class Mail extends REST_Controller {
             $subject = $this->post('subject');
             $receivers = $this->post('receivers');
             $isDraft = $this->post('isDraft');
-            $id = $this->post('id');
-            $res=$this->mail_model->new_mail($userID,$subject,$body,$receivers,$isDraft,$id);
+            $mail_id = $this->post('mail_id');
+            $parent_id=$this->post('parent_id');
+            if($parent_id==NULL)$parent_id=0;
+            $res=$this->mail_model->new_mail($userID,$subject,$body,$receivers,$isDraft,$mail_id,$parent_id);
 
             $this->set_response($res, REST_Controller::HTTP_CREATED); // CREATED (201) being the HTTP response code
         }
@@ -121,24 +127,23 @@ class Mail extends REST_Controller {
 
     }
 
-    public function users_delete()
+    public function mails_put()
     {
-        $id = (int) $this->get('id');
 
-        // Validate the id.
-        if ($id <= 0)
-        {
-            // Set the response and exit
-            $this->response(NULL, REST_Controller::HTTP_BAD_REQUEST); // BAD_REQUEST (400) being the HTTP response code
+        if (isset($this->session->userdata['logged_in'])) {
+            $userID = ($this->session->userdata['logged_in']['userID']);
+            $id = (int) $this->put('id');
+            $read=$this->put('read');
+            $this->mail_model->update_read($id,$read,$userID);
+            $this->set_response(REST_Controller::HTTP_OK);
         }
-
-        // $this->some_model->delete_something($id);
-        $message = [
-            'id' => $id,
-            'message' => 'Deleted the resource'
-        ];
-
-        $this->set_response($message, REST_Controller::HTTP_NO_CONTENT); // NO_CONTENT (204) being the HTTP response code
+        else {
+            $this->response([
+                'status' => FALSE,
+                'message' => 'Access not allowed'
+            ], REST_Controller::HTTP_UNAUTHORIZED);
+        }
+         // NO_CONTENT (204) being the HTTP response code
     }
 
 }
